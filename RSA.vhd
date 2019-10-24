@@ -14,45 +14,48 @@ library ieee;
 use ieee.std_logic_1164.all;
 use ieee.numeric_std.all;
 
-ENTITY RSA_Processor IS
-	PORT(	prime_1,prime_2 : IN std_logic_vector(31 downto 0); 	--Kullanilacak asallar.
-		calculate_priv_pub_key, prime_set, enc_dec_select : IN std_logic; 	--Reset RSA, set primes and enc/dec select
-		public_key, n : BUFFER std_logic_vector(63 downto 0);               	-- (N,E) anahtar çifti.
-		message_out : OUT std_logic_vector(63 downto 0);
-		message_in : IN std_logic_vector (63 downto 0)				-- Normal ya da sifreli mesaj.
+ENTITY N_and_Z IS
+	PORT(	prime1,prime2 : IN unsigned(31 downto 0); 	--Kullanilacak asallar.
+		calculate_priv_pub_key : IN std_logic; 	--Reset RSA, set primes and enc/dec select
+		N : OUT unsigned(63 downto 0);               	-- (N,E) anahtar çifti.
+		Z : OUT unsigned(63 downto 0);
+		CLK : IN std_logic	-- Normal ya da sifreli mesaj.
 	);
-END RSA_Processor;
+END N_and_Z;
 
-ARCHITECTURE Behv OF RSA_Processor IS
-SIGNAL z : STD_LOGIC_VECTOR(63 downto 0);	-- Z = Prime1 * Prime2
-SIGNAL e : STD_LOGIC_VECTOR(63 downto 0);	-- (E < N) & ebob(E,Z)
-SIGNAL n_1 : unsigned(63 downto 0);
-SIGNAL z_1 : unsigned(63 downto 0);			-- Z ve N'nin integer formmu. Vector formu laz?m olacak.
-SIGNAL prime1 : STD_LOGIC_VECTOR(31 downto 0) := std_logic_vector(to_unsigned(1949, 32));
-SIGNAL prime2 : STD_LOGIC_VECTOR(31 downto 0) := std_logic_vector(to_unsigned(1951, 32));
-SIGNAL d_vector : STD_LOGIC_VECTOR(63 downto 0);
-SIGNAL e_int : unsigned(63 downto 0);
-SIGNAL d_int : unsigned(63 downto 0);
+ARCHITECTURE Behv OF N_and_Z IS
 BEGIN
-	-- assert clk='1' report "clock not up" severity WARNING; PR?MELARIN SETLEN?P SETLENMED???NE BAKMAK.
-	--prime1 <= prime_1 when rising_edge(prime_set); 
-	--prime2 <= prime_2 when rising_edge(prime_set); 
+	PROCESS(calculate_priv_pub_key)
+	BEGIN
+	IF (calculate_priv_pub_key'transaction'event  and calculate_priv_pub_key ='1') then
+		n <= prime1 * prime2;
+		z <= (prime1-1)*(prime2-1);
+	END IF;
+	END PROCESS;
+END Behv;
 
-	n <= std_logic_vector(unsigned(prime1) * unsigned(prime2)); 			-- VECTOR
-	z <= std_logic_vector(((unsigned(prime1) - 1) * ((unsigned(prime2) - 1))));
-	n_1 <= unsigned(unsigned(prime1) * unsigned(prime2));			-- INTEGER
-	z_1 <= (unsigned(prime1) - 1) * ((unsigned(prime2) - 1));
-	
-	-- Algoritmadaki N ve Z de?i?kenlerini bulan k?s?m.
 
-	Calculate: PROCESS (calculate_priv_pub_key) -- Key'leri tekrar hesaplayan k?s?m.
 
-		variable i : unsigned(63 downto 0);
-		--variable z_temp : integer := to_integer(unsigned(z));
-		variable temp : unsigned(127 downto 0);
+library ieee;
+use ieee.std_logic_1164.all;
+use ieee.numeric_std.all;
 
-		-- Seçilen E say?s?n?n Z ile coprime olup olmad???n? döndüren fonksiyon.
-		function coprime_check(z_temp, i: unsigned(63 downto 0)) return BOOLEAN is
+
+ENTITY find_E IS
+	PORT(	Z : IN unsigned(63 downto 0);
+		N : IN unsigned(63 downto 0);
+		E : OUT unsigned(63 downto 0);
+		CLK : IN std_logic
+	);
+
+END find_E;
+
+ARCHITECTURE Behv OF find_E IS
+
+BEGIN
+	PROCESS (N,Z, CLK)
+		VARIABLE i : unsigned(63 downto 0);
+		function COPRIME_CHECK (z_temp, i: unsigned(63 downto 0))	return BOOLEAN is
 			variable z_temp1 : unsigned(63 downto 0) := z_temp; -- variable olarak atamazsam 58. sat?rda de?er atayam?yorum.
 			variable i_n : unsigned(63 downto 0);
 			begin
@@ -68,35 +71,52 @@ BEGIN
 				end if;
 			END LOOP;
 			return false;
-		end function coprime_check;
+		end function COPRIME_CHECK;
 
 
-		BEGIN
-		if calculate_priv_pub_key'transaction'event then
-		i := (n_1 - 1) / 1000;
-		WHILE (i < n_1) LOOP -- Z'nin yar?s?ndan büyük bir E bulan loop.
-			if coprime_check(z_1, i) then
-				e_int <= i;
-				wait for 10 ns;
-				e <=  std_logic_vector(i);
-				wait for 10 ns;
+
+
+	BEGIN
+		IF (CLK'event and CLK='1') then -- D FlipFlopu laz?m.
+		i := (N - 1) / 1000;
+		WHILE (i < N) LOOP -- Z'nin yar?s?ndan büyük bir E bulan loop.
+			if COPRIME_CHECK(Z, i) then
+				E <= i;
 				exit;
 			END IF;
 			i := i + 1;
 		END LOOP;
-		
-		i := to_unsigned(1, i'length);
-		WHILE (i < 100)LOOP
-			temp := (e_int * i) - 1;
-			IF ( (z_1 rem temp) = 0 ) THEN -- z%(e*d - 1) = 0'a uyan D sayisini bulma.
-				d_vector <= std_logic_vector(i);
-				wait for 10 ns;
-				d_int <= i;
-				wait for 10 ns;
-				exit;
-			END IF;
-			i := i + 1;
-		END LOOP;
-		public_key <= n;
 		END IF;
+	END PROCESS;
+END Behv;
+
+library ieee;
+use ieee.std_logic_1164.all;
+use ieee.numeric_std.all;
+
+ENTITY find_D IS
+	PORT( 	E : IN unsigned(63 downto 0);
+		Z : IN unsigned(63 downto 0);
+		D : OUT unsigned(63 downto 0);
+		CLK : IN std_logic
+	);
+
+END find_D;
+ARCHITECTURE Behv OF find_D IS
+BEGIN
+	PROCESS(Z,E, CLK)
+	VARIABLE i : unsigned(63 downto 0);
+	VARIABLE temp : unsigned(127 downto 0);
+	BEGIN
+		IF() -- CLK='1' kodunu yaz.
+		i := to_unsigned(1, i'length);
+		WHILE (i < 10000) LOOP
+			temp := (E * i) - 1;
+			IF ( (Z rem temp) = 0 ) THEN -- z%(e*d - 1) = 0'a uyan D sayisini bulma.
+				D <= i;
+				exit;
+			END IF;
+			i := i + 1;
+		END LOOP;
+	END PROCESS;
 END Behv;
