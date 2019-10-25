@@ -40,18 +40,15 @@ library ieee;
 use ieee.std_logic_1164.all;
 use ieee.numeric_std.all;
 
-
 ENTITY find_E IS
 	PORT(	Z : IN unsigned(63 downto 0);
 		N : IN unsigned(63 downto 0);
 		E : OUT unsigned(63 downto 0);
 		CLK : IN std_logic
 	);
-
 END find_E;
 
 ARCHITECTURE Behv OF find_E IS
-
 BEGIN
 	PROCESS (N,Z, CLK)
 		VARIABLE i : unsigned(63 downto 0);
@@ -73,15 +70,49 @@ BEGIN
 			return false;
 		end function COPRIME_CHECK;
 
-
-
-
 	BEGIN
 		IF (CLK'event and CLK='1') then -- D FlipFlopu laz?m.
-		i := (N - 1) / 1000;
-		WHILE (i < N) LOOP -- Z'nin yar?s?ndan büyük bir E bulan loop.
+		i := to_unsigned(2,i'length);
+		WHILE (Z > i) LOOP -- Z'nin yar?s?ndan büyük bir E bulan loop.
 			if COPRIME_CHECK(Z, i) then
 				E <= i;
+				exit;
+			END IF;
+			i := i + 1;
+		END LOOP;
+		END IF;
+	END PROCESS;
+END Behv;
+
+
+library ieee;
+use ieee.std_logic_1164.all;
+use ieee.numeric_std.all;
+
+ENTITY find_D IS
+	PORT( 	E : IN unsigned(63 downto 0);
+		Z : IN unsigned(63 downto 0);
+		D : OUT unsigned(63 downto 0);
+		CLK : IN std_logic
+	);
+END find_D;
+
+ARCHITECTURE Behv OF find_D IS
+BEGIN
+	PROCESS(E, CLK)
+	VARIABLE i : unsigned(63 downto 0);
+	VARIABLE temp : unsigned(127 downto 0) ;
+	BEGIN
+		IF(E'transaction'event) THEN -- CLK='1' kodunu yaz.
+		temp := to_unsigned(2, temp'length);
+		i := to_unsigned(2, i'length);
+		WHILE (Z > i) LOOP
+			temp := (E * i) - 1;
+			IF ( (Z rem temp) = to_unsigned(0,temp'length )) THEN -- z%(e*d - 1) = 0'a uyan D sayisini bulma.
+				D <= i;
+				exit;
+			END IF;
+			IF (temp > Z) THEN
 				exit;
 			END IF;
 			i := i + 1;
@@ -94,29 +125,126 @@ library ieee;
 use ieee.std_logic_1164.all;
 use ieee.numeric_std.all;
 
-ENTITY find_D IS
+
+ENTITY Encrypt IS
+	PORT( 	E : IN unsigned(63 downto 0);
+		N : IN unsigned(63 downto 0);
+		message_in : IN unsigned(63 downto 0);
+		message_out : OUT unsigned(63 downto 0);
+		CLK : IN std_logic;
+		enc_dec_select : IN std_logic --Encrypt icin 0 biti.
+		
+	);
+END Encrypt;
+
+ARCHITECTURE behv_encrypt OF Encrypt IS
+BEGIN
+	PROCESS(enc_dec_select)
+	variable temp,temp1 : unsigned(63 downto 0);
+	BEGIN
+	IF(enc_dec_select'transaction'event AND enc_dec_select = '1') THEN
+		temp := to_unsigned(to_integer(message_in) ** to_integer(E) mod to_integer(N),temp'length);
+		message_out <= temp;
+	END IF;
+	END PROCESS;
+END behv_encrypt;
+
+
+library ieee;
+use ieee.std_logic_1164.all;
+use ieee.numeric_std.all;
+
+
+ENTITY Decrypt IS
+	PORT( 	D : IN unsigned(63 downto 0);
+		N : IN unsigned(63 downto 0);
+		message_in : IN unsigned(63 downto 0);
+		message_out : OUT unsigned(63 downto 0);
+		CLK : IN std_logic;
+		enc_dec_select : IN std_logic --Decrypt icin 1 biti.
+		
+	);
+END Decrypt;
+
+ARCHITECTURE behv_decrypt OF Decrypt IS
+BEGIN
+	PROCESS(enc_dec_select)
+	BEGIN
+	IF(enc_dec_select'transaction'event AND enc_dec_select = '0') THEN
+		message_out <= to_unsigned((((to_integer(message_in))**to_integer(D)) mod to_integer(N)), message_out'length);
+	END IF;
+	END PROCESS;
+END behv_decrypt;
+
+
+library ieee;
+use ieee.std_logic_1164.all;
+use ieee.numeric_std.all;
+
+ENTITY RSA_Processor_1 IS
+	PORT(	prime1, prime2 : UNSIGNED(31 downto 0);
+		set_primes : IN std_logic;
+		CLK : IN std_logic;
+		enc_dec_select : IN std_logic;
+		public_key1, public_key2 : OUT UNSIGNED(63 downto 0);
+		message_out : OUT UNSIGNED(63 downto 0);
+		message_in : IN UNSIGNED(63 downto 0)
+
+);
+END RSA_Processor_1;
+
+ARCHITECTURE behv_RSA OF RSA_Processor_1 IS
+	component N_and_Z
+	PORT(	prime1,prime2 : IN unsigned(31 downto 0); 	--Kullanilacak asallar.
+		calculate_priv_pub_key : IN std_logic; 	--Reset RSA, set primes and enc/dec select
+		N : OUT unsigned(63 downto 0);               	-- (N,E) anahtar çifti.
+		Z : OUT unsigned(63 downto 0);
+		CLK : IN std_logic	-- Normal ya da sifreli mesaj.
+	);
+
+	END component;
+	component find_E
+	PORT(	Z : IN unsigned(63 downto 0);
+		N : IN unsigned(63 downto 0);
+		E : OUT unsigned(63 downto 0);
+		CLK : IN std_logic
+	);
+	END COMPONENT;
+	COMPONENT find_D
 	PORT( 	E : IN unsigned(63 downto 0);
 		Z : IN unsigned(63 downto 0);
 		D : OUT unsigned(63 downto 0);
 		CLK : IN std_logic
 	);
+	END COMPONENT;
 
-END find_D;
-ARCHITECTURE Behv OF find_D IS
+	COMPONENT Decrypt IS
+	PORT( 	D : IN unsigned(63 downto 0);
+		N : IN unsigned(63 downto 0);
+		message_in : IN unsigned(63 downto 0);
+		message_out : OUT unsigned(63 downto 0);
+		CLK : IN std_logic;
+		enc_dec_select : IN std_logic --Decrypt icin 1 biti.
+		
+	);
+	END COMPONENT;
+	COMPONENT Encrypt IS
+	PORT( 	E : IN unsigned(63 downto 0);
+		N : IN unsigned(63 downto 0);
+		message_in : IN unsigned(63 downto 0);
+		message_out : OUT unsigned(63 downto 0);
+		CLK : IN std_logic;
+		enc_dec_select : IN std_logic --Encrypt icin 0 biti.
+		
+	);
+	END COMPONENT;
+
+SIGNAL N, Z, E : unsigned(63 downto 0);
+SIGNAL D : unsigned(63 downto 0);
 BEGIN
-	PROCESS(Z,E, CLK)
-	VARIABLE i : unsigned(63 downto 0);
-	VARIABLE temp : unsigned(127 downto 0);
-	BEGIN
-		IF() -- CLK='1' kodunu yaz.
-		i := to_unsigned(1, i'length);
-		WHILE (i < 10000) LOOP
-			temp := (E * i) - 1;
-			IF ( (Z rem temp) = 0 ) THEN -- z%(e*d - 1) = 0'a uyan D sayisini bulma.
-				D <= i;
-				exit;
-			END IF;
-			i := i + 1;
-		END LOOP;
-	END PROCESS;
-END Behv;
+	n1 : N_and_Z port map(prime1, prime2, set_primes,N, Z, CLK);
+	n2 : find_E port map(Z,N,E,CLK);
+	n3 : find_D port map(E,Z,D,CLK);
+	n4 : Decrypt port map(D,N,message_in, message_out, CLK, enc_dec_select);
+	n5 : Encrypt port map(E, N, message_in, message_out, CLK, enc_dec_select);
+END behv_RSA;
