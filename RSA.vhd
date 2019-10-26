@@ -44,6 +44,7 @@ ENTITY find_E IS
 	PORT(	Z : IN unsigned(63 downto 0);
 		N : IN unsigned(63 downto 0);
 		E : OUT unsigned(63 downto 0);
+		public_key1, public_key2 : OUT unsigned(63 downto 0);
 		CLK : IN std_logic
 	);
 END find_E;
@@ -51,35 +52,11 @@ END find_E;
 ARCHITECTURE Behv OF find_E IS
 BEGIN
 	PROCESS (N,Z, CLK)
-		VARIABLE i : unsigned(63 downto 0);
-		function COPRIME_CHECK (z_temp, i: unsigned(63 downto 0))	return BOOLEAN is
-			variable z_temp1 : unsigned(63 downto 0) := z_temp; -- variable olarak atamazsam 58. sat?rda de?er atayam?yorum.
-			variable i_n : unsigned(63 downto 0);
-			begin
-			i_n := i;
-			WHILE (z_temp1 /= 0) AND (i_n /= 0) LOOP
-				if (z_temp1 > i_n ) THEN
-					z_temp1 := z_temp1 mod i_n;
-				else
-					i_n := i_n mod z_temp1;	
-				end if;
-				if (z_temp1 = 1) OR (i_n = 1) then
-					return true;
-				end if;
-			END LOOP;
-			return false;
-		end function COPRIME_CHECK;
-
 	BEGIN
-		IF (CLK'event and CLK='1') then -- D FlipFlopu laz?m.
-		i := to_unsigned(2,i'length);
-		WHILE (Z > i) LOOP -- Z'nin yar?s?ndan büyük bir E bulan loop.
-			if COPRIME_CHECK(Z, i) then
-				E <= i;
-				exit;
-			END IF;
-			i := i + 1;
-		END LOOP;
+		IF (Z'transaction'event and CLK='1') then -- D FlipFlopu laz?m.
+			E <= to_unsigned(to_integer(Z) * 3 + 1, 64);
+			public_key1 <= E;
+			public_key2 <= N;
 		END IF;
 	END PROCESS;
 END Behv;
@@ -100,23 +77,21 @@ END find_D;
 ARCHITECTURE Behv OF find_D IS
 BEGIN
 	PROCESS(E, CLK)
-	VARIABLE i : unsigned(63 downto 0);
-	VARIABLE temp : unsigned(127 downto 0) ;
+	VARIABLE i,j : unsigned(63 downto 0);
+	VARIABLE temp : unsigned(63 downto 0) ;
 	BEGIN
 		IF(E'transaction'event) THEN -- CLK='1' kodunu yaz.
-		temp := to_unsigned(2, temp'length);
-		i := to_unsigned(2, i'length);
-		WHILE (Z > i) LOOP
-			temp := (E * i) - 1;
-			IF ( (Z rem temp) = to_unsigned(0,temp'length )) THEN -- z%(e*d - 1) = 0'a uyan D sayisini bulma.
-				D <= i;
-				exit;
-			END IF;
-			IF (temp > Z) THEN
-				exit;
-			END IF;
-			i := i + 1;
-		END LOOP;
+			i := to_unsigned(2,64);
+			j := to_unsigned(2, 64);
+			temp := to_unsigned(to_integer(Z) * 3 + 1, 64);
+			WHILE (i * i <= temp) LOOP
+				IF ((temp mod i) /= 0) THEN
+					i := i + 1;
+				ELSE
+					temp := temp / i;
+				END IF;
+			END LOOP;
+			D <= temp;
 		END IF;
 	END PROCESS;
 END Behv;
@@ -138,14 +113,16 @@ ENTITY Encrypt IS
 END Encrypt;
 
 ARCHITECTURE behv_encrypt OF Encrypt IS
+
+SIGNAL temp,temp1 : unsigned(63 downto 0);
 BEGIN
 	PROCESS(enc_dec_select)
-	variable temp,temp1 : unsigned(63 downto 0);
 	BEGIN
-	IF(enc_dec_select'transaction'event AND enc_dec_select = '1') THEN
-		temp := to_unsigned(to_integer(message_in) ** to_integer(E) mod to_integer(N),temp'length);
-		message_out <= temp;
+	IF(CLK'event AND enc_dec_select = '1') THEN
+		temp <= to_unsigned(to_integer(message_in) ** to_integer(E) mod to_integer(N),temp'length);
+			message_out <= temp;
 	END IF;
+
 	END PROCESS;
 END behv_encrypt;
 
@@ -170,7 +147,7 @@ ARCHITECTURE behv_decrypt OF Decrypt IS
 BEGIN
 	PROCESS(enc_dec_select)
 	BEGIN
-	IF(enc_dec_select'transaction'event AND enc_dec_select = '0') THEN
+	IF(CLK'event AND enc_dec_select = '0') THEN
 		message_out <= to_unsigned((((to_integer(message_in))**to_integer(D)) mod to_integer(N)), message_out'length);
 	END IF;
 	END PROCESS;
