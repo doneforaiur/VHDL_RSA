@@ -1,10 +1,10 @@
 ----------------------------------------------
--- Donanim Tanimlama Dilleri Dersi Proje Ödevi
+-- Donanim Tanimlama Dilleri Dersi Proje Ã–devi
 -- 19/10/2019
 --
 --
 -- Mirza ATLI
--- Yücel TOPRAK
+-- YÃ¼cel TOPRAK
 -- Halil Ibrahim BASKAYA
 --
 --
@@ -17,7 +17,7 @@ use ieee.numeric_std.all;
 ENTITY N_and_Z IS
 	PORT(	prime1,prime2 : IN unsigned(31 downto 0); 	--Kullanilacak asallar.
 		calculate_priv_pub_key : IN std_logic; 	--Reset RSA, set primes and enc/dec select
-		N : OUT unsigned(63 downto 0);               	-- (N,E) anahtar çifti.
+		N : OUT unsigned(63 downto 0);               	-- (N,E) anahtar Ã§ifti.
 		Z : OUT unsigned(63 downto 0);
 		CLK : IN std_logic	-- Normal ya da sifreli mesaj.
 	);
@@ -33,7 +33,6 @@ BEGIN
 	END IF;
 	END PROCESS;
 END Behv;
-
 
 
 library ieee;
@@ -230,7 +229,7 @@ ARCHITECTURE behv_RSA OF RSA_Processor_1 IS
 	component N_and_Z
 	PORT(	prime1,prime2 : IN unsigned(31 downto 0); 	--Kullanilacak asallar.
 		calculate_priv_pub_key : IN std_logic; 	--Reset RSA, set primes and enc/dec select
-		N : OUT unsigned(63 downto 0);               	-- (N,E) anahtar çifti.
+		N : OUT unsigned(63 downto 0);               	-- (N,E) anahtar Ã§ifti.
 		Z : OUT unsigned(63 downto 0);
 		CLK : IN std_logic	-- Normal ya da sifreli mesaj.
 	);
