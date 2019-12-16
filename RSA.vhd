@@ -1,10 +1,10 @@
 ----------------------------------------------
--- Donanim Tanimlama Dilleri Dersi Proje Ã–devi
+-- Donanim Tanimlama Dilleri Dersi Proje Ödevi
 -- 19/10/2019
 --
 --
 -- Mirza ATLI
--- YÃ¼cel TOPRAK
+-- Yücel TOPRAK
 -- Halil Ibrahim BASKAYA
 --
 --
@@ -17,7 +17,7 @@ use ieee.numeric_std.all;
 ENTITY N_and_Z IS
 	PORT(	prime1,prime2 : IN unsigned(31 downto 0); 	--Kullanilacak asallar.
 		calculate_priv_pub_key : IN std_logic; 	--Reset RSA, set primes and enc/dec select
-		N : OUT unsigned(63 downto 0);               	-- (N,E) anahtar Ã§ifti.
+		N : OUT unsigned(63 downto 0);               	-- (N,E) anahtar çifti.
 		Z : OUT unsigned(63 downto 0);
 		CLK : IN std_logic	-- Normal ya da sifreli mesaj.
 	);
@@ -35,13 +35,14 @@ BEGIN
 END Behv;
 
 
+
 library ieee;
 use ieee.std_logic_1164.all;
 use ieee.numeric_std.all;
 
 ENTITY find_E IS
 	PORT(	Z : IN unsigned(63 downto 0);
-		N : IN unsigned(63 downto 0);
+		D : IN unsigned(63 downto 0);
 		E : OUT unsigned(63 downto 0);
 		public_key1 : OUT unsigned(63 downto 0);
 		CLK : IN std_logic
@@ -50,11 +51,11 @@ END find_E;
 
 ARCHITECTURE Behv OF find_E IS
 BEGIN
-	PROCESS (N,Z, CLK)
+	PROCESS(CLK)
 	BEGIN
-		IF (Z'transaction'event and CLK='1') then -- D FlipFlopu laz?m.
-			E <= to_unsigned(to_integer(Z) * 3 + 1, 64);
-			public_key1 <= to_unsigned(to_integer(Z) * 3 + 1, 64);
+		IF (CLK'event AND CLK='1') then -- D FlipFlopu lazim.
+			E <= to_unsigned(to_integer(Z) * 3 + 1, 64) / D; --  to_unsigned(to_integer(Z) * 3 + 1, 64);
+			--public_key1 <= E; --  to_unsigned(to_integer(Z) * 3 + 1, 64);
 		END IF;
 	END PROCESS;
 END Behv;
@@ -75,7 +76,7 @@ END find_D;
 
 ARCHITECTURE Behv OF find_D IS
 BEGIN
-	PROCESS(E, CLK)
+	PROCESS(E)
 	VARIABLE i,j : unsigned(63 downto 0);
 	VARIABLE temp : unsigned(63 downto 0) ;
 	BEGIN
@@ -114,9 +115,9 @@ END Encrypt;
 
 ARCHITECTURE behv_encrypt OF Encrypt IS
 
-SIGNAL temp,temp1 : unsigned(63 downto 0);
+	SIGNAL temp3 : unsigned (255 downto 0) := to_unsigned(1, 256);
 BEGIN
-	PROCESS(enc_dec_select)
+	PROCESS(CLK, enc_dec_select)
 	type powersOfTwo is array (62 downto 0) of unsigned(63 downto 0);
 	variable modsOfTwos : powersOfTwo;
 
@@ -124,6 +125,7 @@ BEGIN
 	variable temp3 : unsigned (255 downto 0) := to_unsigned(1, 256);
 	BEGIN
 	IF(CLK'event AND enc_dec_select = '1') THEN
+		temp3 := to_unsigned(1,256);
 		modsOfTwos(0) := message_in mod N;
 		i := 1;
 		WHILE (i < 63) LOOP
@@ -137,7 +139,7 @@ BEGIN
 		i := 0;
 		WHILE (i < 63) LOOP
 			IF(E(i) = '1') THEN
-				temp3 :=  resize((temp3 * modsOfTwos(i)), 256);
+				temp3 :=  resize(((temp3 * modsOfTwos(i)) mod N), 256);
 
 			END IF;
 			i := i + 1;
@@ -148,7 +150,6 @@ BEGIN
 		--temp <= to_unsigned((temp3 mod to_integer(N)), 64);
 		--message_out <= temp;
 	END IF;
-
 	END PROCESS;
 END behv_encrypt;
 
@@ -174,38 +175,38 @@ ARCHITECTURE behv_decrypt OF Decrypt IS
 
 	SIGNAL temp3 : unsigned (255 downto 0) := to_unsigned(1, 256);
 BEGIN
-	PROCESS(enc_dec_select)
+	PROCESS(CLK, enc_dec_select)
 	type powersOfTwo is array (62 downto 0) of unsigned(63 downto 0);
 	variable modsOfTwos : powersOfTwo;
 
 	variable i : integer range 0 to 63;
+	variable temp3 : unsigned (255 downto 0) := to_unsigned(1, 256);
 	BEGIN
 	IF(CLK'event AND enc_dec_select = '0') THEN
-		temp3 <= to_unsigned(1,256);
 		modsOfTwos(0) := message_in mod N;
 		i := 1;
 		WHILE (i < 63) LOOP
 			modsOfTwos(i) := (modsOfTwos(i-1) * modsOfTwos(i-1)) mod N;
 		--to_unsigned(((to_integer(modsOfTwos(i-1)) * (to_integer(message_in) mod to_integer(N))) mod to_integer(N)),64);
 			--to_unsigned(modsOfTwos(i-1) *  to_unsigned((to_integer(message_in) mod to_integer(N)),64)) mod to_integer(N)), 64);
-				
-
 			i := i + 1;
 		END LOOP;
 		i := 0;
 		WHILE (i < 63) LOOP
 			IF(D(i) = '1') THEN
-				temp3 <=  resize((temp3 * modsOfTwos(i)), 256);
+				temp3 :=  resize((temp3 * modsOfTwos(i)), 256);
+
 			END IF;
 			i := i + 1;
 
 		END LOOP;
+		message_out <= temp3 mod N;
+		temp3 := to_unsigned(1,256);
 		--temp <= to_unsigned((temp3 mod to_integer(N)), 64);
 		--message_out <= temp;
-
 	END IF;
 	END PROCESS;
-	message_out <= (temp3 mod N);
+
 END behv_decrypt;
 
 
@@ -229,7 +230,7 @@ ARCHITECTURE behv_RSA OF RSA_Processor_1 IS
 	component N_and_Z
 	PORT(	prime1,prime2 : IN unsigned(31 downto 0); 	--Kullanilacak asallar.
 		calculate_priv_pub_key : IN std_logic; 	--Reset RSA, set primes and enc/dec select
-		N : OUT unsigned(63 downto 0);               	-- (N,E) anahtar Ã§ifti.
+		N : OUT unsigned(63 downto 0);               	-- (N,E) anahtar çifti.
 		Z : OUT unsigned(63 downto 0);
 		CLK : IN std_logic	-- Normal ya da sifreli mesaj.
 	);
@@ -237,7 +238,7 @@ ARCHITECTURE behv_RSA OF RSA_Processor_1 IS
 	END component;
 	component find_E
 	PORT(	Z : IN unsigned(63 downto 0);
-		N : IN unsigned(63 downto 0);
+		D : IN unsigned(63 downto 0);
 		E : OUT unsigned(63 downto 0);
 		public_key1 : OUT unsigned(63 downto 0);
 		CLK : IN std_logic
@@ -277,10 +278,10 @@ SIGNAL N, Z, E : unsigned(63 downto 0);
 SIGNAL D : unsigned(63 downto 0);
 BEGIN
 	n1 : N_and_Z port map(prime1, prime2, set_primes,N, Z, CLK);
-	n2 : find_E port map(Z,N,E,public_key1,CLK);
+	n2 : find_E port map(Z,D,E,public_key1,CLK);
 	n3 : find_D port map(E,Z,D,public_key2,CLK);
 
 
-	n4 : Decrypt port map(D,N,message_to_decrypt, decrypted_message, CLK, enc_dec_select);
+	n4 : Decrypt port map(D, N,message_to_decrypt, decrypted_message, CLK, enc_dec_select);
 	n5 : Encrypt port map(E, N, message_to_encrypt, encrypted_message, CLK, enc_dec_select);
 END behv_RSA;
