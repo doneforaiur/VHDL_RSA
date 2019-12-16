@@ -1,25 +1,22 @@
-----------------------------------------------
+--============================================
 -- Donanim Tanimlama Dilleri Dersi Proje Ödevi
 -- 19/10/2019
---
---
+--============================================
 -- Mirza ATLI
 -- Yücel TOPRAK
 -- Halil Ibrahim BASKAYA
---
---
-----------------------------------------------
+--============================================
 
 library ieee;
 use ieee.std_logic_1164.all;
 use ieee.numeric_std.all;
 
 ENTITY N_and_Z IS
-	PORT(	prime1,prime2 : IN unsigned(31 downto 0); 	--Kullanilacak asallar.
-		calculate_priv_pub_key : IN std_logic; 	--Reset RSA, set primes and enc/dec select
-		N : OUT unsigned(63 downto 0);               	-- (N,E) anahtar çifti.
+	PORT(	prime1,prime2 : IN unsigned(31 downto 0); 	
+		calculate_priv_pub_key : IN std_logic; 		
+		N : OUT unsigned(63 downto 0);            
 		Z : OUT unsigned(63 downto 0);
-		CLK : IN std_logic	-- Normal ya da sifreli mesaj.
+		CLK : IN std_logic
 	);
 END N_and_Z;
 
@@ -53,9 +50,9 @@ ARCHITECTURE Behv OF find_E IS
 BEGIN
 	PROCESS(CLK)
 	BEGIN
-		IF (CLK'event AND CLK='1') then -- D FlipFlopu lazim.
-			E <= to_unsigned(to_integer(Z) * 3 + 1, 64) / D; --  to_unsigned(to_integer(Z) * 3 + 1, 64);
-			--public_key1 <= E; --  to_unsigned(to_integer(Z) * 3 + 1, 64);
+		IF (CLK'event AND CLK='1') then 
+			E <= to_unsigned(to_integer(Z) * 3 + 1, 64) / D; 
+			public_key1 <= to_unsigned(to_integer(Z) * 3 + 1, 64) / D; 
 		END IF;
 	END PROCESS;
 END Behv;
@@ -80,7 +77,7 @@ BEGIN
 	VARIABLE i,j : unsigned(63 downto 0);
 	VARIABLE temp : unsigned(63 downto 0) ;
 	BEGIN
-		IF(E'transaction'event) THEN -- CLK='1' kodunu yaz.
+		IF(E'transaction'event) THEN 
 			i := to_unsigned(2,64);
 			j := to_unsigned(2, 64);
 			temp := to_unsigned(to_integer(Z) * 3 + 1, 64);
@@ -92,7 +89,7 @@ BEGIN
 				END IF;
 			END LOOP;
 			D <= temp;
-			public_key2 <= Z / temp;
+			public_key2 <= temp;
 		END IF;
 	END PROCESS;
 END Behv;
@@ -108,8 +105,7 @@ ENTITY Encrypt IS
 		message_in : IN unsigned(63 downto 0);
 		message_out : OUT unsigned(63 downto 0);
 		CLK : IN std_logic;
-		enc_dec_select : IN std_logic --Encrypt icin 0 biti.
-		
+		enc_dec_select : IN std_logic
 	);
 END Encrypt;
 
@@ -130,25 +126,18 @@ BEGIN
 		i := 1;
 		WHILE (i < 63) LOOP
 			modsOfTwos(i) := (modsOfTwos(i-1) * modsOfTwos(i-1)) mod N;
-		--to_unsigned(((to_integer(modsOfTwos(i-1)) * (to_integer(message_in) mod to_integer(N))) mod to_integer(N)),64);
-			--to_unsigned(modsOfTwos(i-1) *  to_unsigned((to_integer(message_in) mod to_integer(N)),64)) mod to_integer(N)), 64);
-				
-
 			i := i + 1;
 		END LOOP;
 		i := 0;
 		WHILE (i < 63) LOOP
 			IF(E(i) = '1') THEN
 				temp3 :=  resize(((temp3 * modsOfTwos(i)) mod N), 256);
-
 			END IF;
 			i := i + 1;
 
 		END LOOP;
 		message_out <= temp3 mod N;
 		temp3 := to_unsigned(1,256);
-		--temp <= to_unsigned((temp3 mod to_integer(N)), 64);
-		--message_out <= temp;
 	END IF;
 	END PROCESS;
 END behv_encrypt;
@@ -165,8 +154,7 @@ ENTITY Decrypt IS
 		message_in : IN unsigned(63 downto 0);
 		message_out : OUT unsigned(63 downto 0);
 		CLK : IN std_logic;
-		enc_dec_select : IN std_logic --Decrypt icin 1 biti.
-		
+		enc_dec_select : IN std_logic
 	);
 END Decrypt;
 
@@ -187,26 +175,20 @@ BEGIN
 		i := 1;
 		WHILE (i < 63) LOOP
 			modsOfTwos(i) := (modsOfTwos(i-1) * modsOfTwos(i-1)) mod N;
-		--to_unsigned(((to_integer(modsOfTwos(i-1)) * (to_integer(message_in) mod to_integer(N))) mod to_integer(N)),64);
-			--to_unsigned(modsOfTwos(i-1) *  to_unsigned((to_integer(message_in) mod to_integer(N)),64)) mod to_integer(N)), 64);
 			i := i + 1;
 		END LOOP;
 		i := 0;
 		WHILE (i < 63) LOOP
 			IF(D(i) = '1') THEN
 				temp3 :=  resize((temp3 * modsOfTwos(i)), 256);
-
 			END IF;
 			i := i + 1;
 
 		END LOOP;
 		message_out <= temp3 mod N;
 		temp3 := to_unsigned(1,256);
-		--temp <= to_unsigned((temp3 mod to_integer(N)), 64);
-		--message_out <= temp;
 	END IF;
 	END PROCESS;
-
 END behv_decrypt;
 
 
@@ -222,17 +204,16 @@ ENTITY RSA_Processor_1 IS
 		public_key1, public_key2 : OUT UNSIGNED(63 downto 0);
 		decrypted_message, encrypted_message : OUT UNSIGNED(63 downto 0);
 		message_to_encrypt, message_to_decrypt : IN UNSIGNED(63 downto 0)
-
 );
 END RSA_Processor_1;
 
 ARCHITECTURE behv_RSA OF RSA_Processor_1 IS
 	component N_and_Z
-	PORT(	prime1,prime2 : IN unsigned(31 downto 0); 	--Kullanilacak asallar.
-		calculate_priv_pub_key : IN std_logic; 	--Reset RSA, set primes and enc/dec select
-		N : OUT unsigned(63 downto 0);               	-- (N,E) anahtar çifti.
+	PORT(	prime1,prime2 : IN unsigned(31 downto 0); 	
+		calculate_priv_pub_key : IN std_logic; 
+		N : OUT unsigned(63 downto 0);
 		Z : OUT unsigned(63 downto 0);
-		CLK : IN std_logic	-- Normal ya da sifreli mesaj.
+		CLK : IN std_logic
 	);
 
 	END component;
@@ -259,7 +240,7 @@ ARCHITECTURE behv_RSA OF RSA_Processor_1 IS
 		message_in : IN unsigned(63 downto 0);
 		message_out : OUT unsigned(63 downto 0);
 		CLK : IN std_logic;
-		enc_dec_select : IN std_logic --Decrypt icin 1 biti.
+		enc_dec_select : IN std_logic
 		
 	);
 	END COMPONENT;
@@ -269,7 +250,7 @@ ARCHITECTURE behv_RSA OF RSA_Processor_1 IS
 		message_in : IN unsigned(63 downto 0);
 		message_out : OUT unsigned(63 downto 0);
 		CLK : IN std_logic;
-		enc_dec_select : IN std_logic --Encrypt icin 0 biti.
+		enc_dec_select : IN std_logic
 		
 	);
 	END COMPONENT;
